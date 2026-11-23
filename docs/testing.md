@@ -15,12 +15,24 @@ files, edits outside the project, blocked and allowed shell commands, and secret
 is on PATH (Git Bash on Windows), the Gate A scenarios also run through `run-hook.sh`, exactly as
 `hooks/hooks.json` calls them.
 
+### MCP server tests
+
+```
+python tests/test_mcp.py
+```
+
+9 tests write fake transcripts into a temporary `CLAUDE_CONFIG_DIR`, start the server as a child
+process and exchange JSON-RPC messages with it: handshake, `tools/list`, usage totals (each reply
+counted once, subagents named by type), bad arguments returned as tool errors, unknown methods.
+
 ## 2. Plugin install check
 
 1. `/plugin marketplace add <path to this repo>` then `/plugin install devorg@devorg-marketplace`.
 2. `/agents` lists the six `devorg:` agents. `/hooks` shows the DevOrg hooks.
 3. In a project **without** `/devorg:init`: edit a file and type `APPROVE PLAN`. Nothing should
    happen (no block, no gate message).
+4. `/mcp` lists `plugin:devorg:token-tracker` as connected. Ask "how many tokens has this session
+   used, by agent?"; Claude should call `session_usage` and show a table.
 
 **Confirm on the first install** (not covered by the docs, so the code accepts both forms):
 - the name the Manager must pass to the Agent tool (`devorg:ticket-reviewer` vs `ticket-reviewer`);

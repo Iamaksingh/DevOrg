@@ -20,7 +20,11 @@ Approvals:  plan <approved|rejected|pending> (<time>) · final <…>
 Stopped:    yes (<time>) | no
 Last event: <last log line>
 Next:       <what happens next / what the human must type>
+Tokens:     <total for this session> (biggest: <agent> <n>)
 ```
+
+For the Tokens line, call the `mcp__plugin_devorg_token-tracker__session_usage` tool with no
+arguments. If it is unavailable, write `Tokens: unavailable`.
 
 Phase → next action:
 - `awaiting_plan_approval` → human types `APPROVE PLAN`, `REJECT PLAN <reason>` or `STOP`.

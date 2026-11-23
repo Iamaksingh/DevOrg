@@ -99,6 +99,15 @@ Append to `log.md` after every step: `- <time> · step <n> · <what happened / w
 - Never run `git push`, `merge`, `rebase`, `reset --hard`, publish/deploy commands, network tools,
   or anything that reads secrets. The hooks block these anyway.
 
+## Token usage (MCP)
+
+The plugin ships a read-only MCP server, `token-tracker`. Its tools appear to you as
+`mcp__plugin_devorg_token-tracker__session_usage` (and `list_sessions`, `usage_by_agent`).
+`session_usage` with no arguments reports the current session, split by agent (main session,
+`devorg:developer-2`, …). Call it at Gate A, at Gate B and for `final-report.md` (see those
+steps). If the tool is unavailable or returns an error, write "token usage unavailable" and carry
+on — never block the workflow on it.
+
 ## Starting
 
 **`resume`:** read `state.json`, `log.md` and the latest records, tell the human where you are,
@@ -166,7 +175,8 @@ Set `selected_developer` (for a hybrid, the **base** developer, who implements e
 **Step 6 — Gate A (human plan approval).** phase=`awaiting_plan_approval`. Show the human a short
 summary: requirements, assumptions and open questions (with their proposed defaults), design
 constraints, **the triangle and weights**, the three approaches in one line each, **the score
-table**, and your decision (SELECT/HYBRID with grafts) and why. Tell them they can change the
+table**, your decision (SELECT/HYBRID with grafts) and why, and **tokens used so far** (the total
+and the top three agents from `session_usage`). Tell them they can change the
 weights (e.g. `REJECT PLAN weights: robustness 3, simplicity 1`). Then tell them to reply with
 exactly one of:
 - `APPROVE PLAN` (optionally followed by notes)
@@ -216,15 +226,17 @@ ask the reviewer once to restate in the required format.
 
 **Step 11 — Gate B (final human approval).** Only when tests pass and the latest architecture,
 code and acceptance reviews are all PASS. phase=`awaiting_final_approval`. Show the human: what
-changed (files + one line each), test summary, the acceptance table, rework history, and any low
-findings left open. Tell them to reply with exactly one of `APPROVE FINAL`,
+changed (files + one line each), test summary, the acceptance table, rework history, any low
+findings left open, and the token usage table from `session_usage`. Tell them to reply with exactly one of `APPROVE FINAL`,
 `REJECT FINAL <reason>` or `STOP`. End your turn and wait. On the next message, read `approvals.json`:
 - `final.status == "approved"` → step 12.
 - `final.status == "rejected"` → log the reason, go back to step 7 (MODE REWORK with the human's
   reason as the finding), then tests and **all three reviews** again, then Gate B again.
 
 **Step 12 — Done.** Write `final-report.md` (summary, decision trail, rework history, test
-evidence, approvals with timestamps from `approvals.json`). Set phase=`done` (this switches the
+evidence, approvals with timestamps from `approvals.json`, and a **Token usage** section with the
+`session_usage` table). If the ticket ran across several sessions (`resume`), say the table
+covers the current session only. Set phase=`done` (this switches the
 DevOrg guards off). Then offer a local commit of the changed project files,
 `git add <files from the diff>` + `git commit -m "<ID>: <title>"`. The human approves or declines
 the command. `.devorg/` is git-ignored and never committed. Never push.

@@ -43,6 +43,7 @@ On Windows, Claude Code runs hooks through Git Bash.
 | `STOP` / `RESUME` / `CANCEL` | Freeze all edits / continue / close the ticket |
 | `/devorg:status` | Where the ticket stands and what's expected next |
 | `/devorg:run resume` | Continue in a new session |
+| "How many tokens did this session use, by agent?" | Claude calls the `token-tracker` MCP server (works in any project) |
 
 DevOrg is invisible in projects without `.devorg/config.json`, and its guards are only active
 while a ticket is running, so normal Claude Code use is unaffected.
@@ -60,7 +61,10 @@ plugins/devorg/                   the plugin itself
   skills/status/                    /devorg:status — read-only status report
   hooks/hooks.json                  when the guards run
   scripts/                          what the guards do (devorg_hooks.py + run-hook.sh launcher)
+  .mcp.json                         registers the token-tracker MCP server
+  mcp/token_tracker.py              the MCP server (token usage per session and agent)
 tests/test_hooks.py               28 tests for the guards
+tests/test_mcp.py                 9 tests for the MCP server
 docs/                             how it works, safety, configuration, testing
 docs/history/                     the original proposal
 ```
@@ -71,5 +75,6 @@ docs/history/                     the original proposal
 - [Workflow](docs/workflow.md) — the 12 steps, the trade-off triangle, gates, rework, records
 - [Safety](docs/safety.md) — what is enforced by code, what by instructions, known gaps
 - [Configuration](docs/configuration.md) — `config.json`, `rules.md`, permissions
+- [Token tracker (MCP)](docs/mcp.md) — how the MCP server works, message by message
 - [Testing](docs/testing.md) — running the hook tests, the end-to-end checklist
 - [Changelog](CHANGELOG.md)

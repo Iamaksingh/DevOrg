@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- New `token-tracker` MCP server (`plugins/devorg/mcp/token_tracker.py`, registered in
+  `.mcp.json`): read-only tools `list_sessions`, `session_usage` and `usage_by_agent` report token
+  usage from Claude Code's transcripts, split by main session, subagent type and model. Standard
+  library only; the JSON-RPC protocol is implemented by hand for learning purposes.
+- The Manager shows token usage at Gate A and Gate B and in `final-report.md`; `/devorg:status`
+  shows the session total.
+- `tests/test_mcp.py`: 9 tests that drive the server over stdin/stdout like Claude Code does.
+
 ## 0.1.0
 
 First generic plugin release.
