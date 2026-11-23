@@ -1,0 +1,7 @@
+{
+  "name": "devorg",
+  "version": "0.1.0",
+  "description": "An AI software team for any project: a manager, ticket reviewer, architect, three developers and a senior reviewer take a ticket from request to human-approved result, with enforced approval gates.",
+  "author": { "name": "DevOrg" },
+  "keywords": ["agents", "subagents", "workflow", "code-review", "human-in-the-loop"]
+}

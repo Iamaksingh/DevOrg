@@ -1,0 +1,11 @@
+{
+  "name": "devorg-marketplace",
+  "owner": { "name": "DevOrg" },
+  "plugins": [
+    {
+      "name": "devorg",
+      "source": "./plugins/devorg",
+      "description": "An AI software team with human approval gates, usable in any project."
+    }
+  ]
+}
