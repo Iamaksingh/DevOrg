@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0 — fewer tokens per ticket
+
+- **Complexity tracks.** The Ticket Reviewer rates each ticket trivial / standard / complex.
+  Trivial: one developer (Simplicity), no design, one verifier. Standard: design without triangle,
+  one developer, one verifier. Complex: the full team. Sensitive areas (auth, validation,
+  secrets, schema, payments, public APIs) force at least standard; the Manager may only raise the
+  track; the human can set it with `--track` or `REJECT PLAN track: <level>`. Gates and hooks
+  apply on every track.
+- **Context brief.** The analysis ends with relevant files, key code, conventions and commands.
+  Architect and developers start from it and justify any extra file they read; reviewers still
+  read freely.
+- **Model per role.** `model:` in each agent: opus for System Architect and Senior Developer,
+  sonnet for Ticket Reviewer and developers.
+- **Checks before reviews.** New optional `check_commands` (build, lint) run before
+  `test_command`; failing checks go straight back to the developer with no reviewer call.
+- **One verifier on short tracks.** Senior Developer `MODE VERIFY` combines code review and
+  acceptance check. On complex tickets the three reviews run in parallel and all findings go
+  back in one rework round; only failed reviews re-run.
+- `/devorg:init` no longer records a test command that can't pass; suggests check commands.
+- Phases renamed: `testing` → `checks`; the three review phases → `verification`. Revision
+  counters: `checks`, `verify`, `architecture`, `code`, `acceptance`.
+- Hook tests: 29 (new: short-track Gate A).
+
 ## 0.2.0
 
 - New `token-tracker` MCP server (`plugins/devorg/mcp/token_tracker.py`, registered in

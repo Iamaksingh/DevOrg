@@ -141,6 +141,24 @@ class BeforeGateA(HookTestCase):
         self.assertNotIn("plan", self.approvals()["T-001"])
 
 
+class ShortTrackGateA(HookTestCase):
+    """Trivial and standard tracks: developer-1 is the only implementer, the verifier is read-only."""
+
+    def setUp(self):
+        super().setUp()
+        self.enable_devorg()
+        self.set_state("awaiting_plan_approval", dev="developer-1")
+        code, out = self.say("APPROVE PLAN")
+        assert "PLAN APPROVED" in out, out
+        self.set_state("implement", dev="developer-1")
+
+    def test_developer_1_edits_others_blocked(self):
+        self.assertEqual(self.edit(agent="devorg:developer-1"), 0)
+        for agent in ("devorg:developer-2", "devorg:senior-developer", "devorg:ticket-reviewer", None):
+            with self.subTest(agent=agent):
+                self.assertEqual(self.edit(agent=agent), 2)
+
+
 class AfterGateA(HookTestCase):
     def setUp(self):
         super().setUp()
@@ -170,8 +188,10 @@ class AfterGateA(HookTestCase):
         self.assertEqual(self.edit(".env", agent="developer-2"), 2)
 
     def test_edit_window_closes_after_implement(self):
-        self.set_state("testing")
-        self.assertEqual(self.edit(agent="developer-2"), 2)
+        for phase in ("checks", "verification", "awaiting_final_approval"):
+            with self.subTest(phase=phase):
+                self.set_state(phase, dev="devorg:developer-2")
+                self.assertEqual(self.edit(agent="developer-2"), 2)
 
     def test_stop_and_resume(self):
         self.say("STOP")
@@ -193,7 +213,7 @@ class CommandGuard(HookTestCase):
     def setUp(self):
         super().setUp()
         self.enable_devorg()
-        self.set_state("testing")
+        self.set_state("checks")
 
     def test_blocked_commands(self):
         for cmd in ["git push", "git -C sub push origin main", "git merge feature",

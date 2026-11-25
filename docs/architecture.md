@@ -2,13 +2,16 @@
 
 ## The roles
 
-| Role | Type | Tools | Defined in |
-|---|---|---|---|
-| Engineering Manager | **main session** | all (delegates; edits only `.devorg/`) | `skills/run/SKILL.md` |
-| Ticket Reviewer | subagent | Read, Grep, Glob | `agents/ticket-reviewer.md` |
-| System Architect | subagent | Read, Grep, Glob | `agents/system-architect.md` |
-| Developer 1 / 2 / 3 | subagents | Read, Grep, Glob, Edit, Write | `agents/developer-{1,2,3}.md` |
-| Senior Developer | subagent | Read, Grep, Glob | `agents/senior-developer.md` |
+| Role | Type | Model | Tools | Defined in |
+|---|---|---|---|---|
+| Engineering Manager | **main session** | session's | all (delegates; edits only `.devorg/`) | `skills/run/SKILL.md` |
+| Ticket Reviewer | subagent | sonnet | Read, Grep, Glob | `agents/ticket-reviewer.md` |
+| System Architect | subagent | opus | Read, Grep, Glob | `agents/system-architect.md` |
+| Developer 1 / 2 / 3 | subagents | sonnet | Read, Grep, Glob, Edit, Write | `agents/developer-{1,2,3}.md` |
+| Senior Developer | subagent | opus | Read, Grep, Glob | `agents/senior-developer.md` |
+
+Models follow cognitive load: design and code review (where a miss is expensive) get opus;
+analysis, proposals and implementation against a design get sonnet.
 
 ### Why the Manager is not a subagent
 
@@ -33,7 +36,9 @@ Every subagent starts with an empty context. It knows only:
 - what the Manager puts in the prompt — the mode, the ticket id and **paths** of record files.
 
 The Manager passes paths rather than pasted text, so each agent reads exactly the evidence it
-needs. Developers proposing in parallel are never given each other's proposals; the Manager logs
+needs. The Ticket Reviewer's **Context brief** (end of `01-analysis.md`) is the shared starting
+point for designers and developers, so they don't each search the repository again; reviewers
+keep full read access so their check stays independent. Developers proposing in parallel are never given each other's proposals; the Manager logs
 which files each received, as evidence that the proposals are independent.
 
 ## Sequential and parallel execution
@@ -41,30 +46,32 @@ which files each received, as evidence that the proposals are independent.
 ```mermaid
 flowchart TD
     H[Human] -->|/devorg:run ticket| M[Engineering Manager · main session]
-    M --> TR[Ticket Reviewer · ANALYSE]
-    TR --> SA[System Architect · DESIGN + triangle]
+    M --> TR[Ticket Reviewer · ANALYSE + complexity + context brief]
+    TR -->|trivial| P1[Developer 1 · Simplicity]
+    TR -->|standard| SS[System Architect · DESIGN]
+    SS --> P1S[Developer 1 · no corner]
+    TR -->|complex| SA[System Architect · DESIGN + triangle]
     SA --> D1[Developer 1 · corner 1]
     SA --> D2[Developer 2 · corner 2]
     SA --> D3[Developer 3 · corner 3]
     D1 & D2 & D3 --> C[Manager · baseline gate, weighted scores, SELECT / HYBRID]
-    C --> GA{{Gate A · human types APPROVE PLAN}}
-    GA -->|rejected| C
+    P1 & P1S --> C1[Manager · baseline gate]
+    C & C1 --> GA{{Gate A · human types APPROVE PLAN}}
     GA -->|approved| I[Selected developer · IMPLEMENT / REWORK]
-    I --> T[Manager runs tests + diff]
+    I --> T[Manager runs build, lint, tests + diff]
     T -->|fail| I
-    T --> AR[Architect · REVIEW]
-    AR -->|fail| I
-    AR --> SR[Senior Developer · REVIEW]
-    SR -->|fail| I
-    SR --> AC[Ticket Reviewer · ACCEPT]
-    AC -->|fail| I
-    AC --> GB{{Gate B · human types APPROVE FINAL}}
+    T -->|trivial / standard| V[Senior Developer · VERIFY]
+    T -->|complex| R[Architect REVIEW ‖ Senior Developer REVIEW ‖ Ticket Reviewer ACCEPT]
+    V -->|fail| I
+    R -->|any fail, one rework| I
+    V & R --> GB{{Gate B · human types APPROVE FINAL}}
     GB -->|rejected| I
     GB -->|approved| DONE[Done · final report, optional local commit]
 ```
 
-Step 4 is the parallel stage (three Agent calls in one message). Everything else is sequential;
-reviews run strictly in the order architecture → code → acceptance.
+Parallel stages (several Agent calls in one message): the three proposals and the three reviews,
+both on complex tickets only. Everything else is sequential. Cheap shell checks (build, lint,
+tests) always run before any reviewer, so a broken build never costs reviewer tokens.
 
 ## Enforcement layer
 

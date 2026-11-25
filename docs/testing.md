@@ -8,7 +8,7 @@ From the repository root:
 python tests/test_hooks.py
 ```
 
-28 tests build throwaway project folders and feed the hooks the same JSON Claude Code sends.
+29 tests build throwaway project folders and feed the hooks the same JSON Claude Code sends.
 They cover: plugin invisible when not set up, normal use unaffected without a ticket, Gate A,
 approved-developer-only edits (namespaced and bare names), STOP/RESUME/CANCEL, protected control
 files, edits outside the project, blocked and allowed shell commands, and secret files. If `sh`
@@ -44,14 +44,17 @@ counted once, subagents named by type), bad arguments returned as tool errors, u
 |---|---|---|
 | 1 | `/devorg:init` | config.json + rules.md created, `.devorg/` in `.gitignore`, test command sensible |
 | 2 | `/devorg:run "<small ticket>"` | git check runs; ticket folder + state.json created |
-| 3 | Analysis | requirements map to testable acceptance criteria; open questions have defaults |
+| 3 | Analysis | requirements map to testable acceptance criteria; open questions have defaults; a complexity LEVEL and a Context brief are present |
+| 3b | Track | a typo fix runs as trivial (no design, 1 developer, 1 verifier); a ticket touching validation is at least standard; `--track complex` is respected |
+| 3c | Context brief used | architect/developer outputs list few or no "files read beyond the brief" |
 | 4 | Design | triangle fits the ticket; each weight has a reason |
 | 5 | Proposals | three genuinely different proposals; each states what it gave up; `log.md` shows each got only shared files + its corner |
 | 6 | Decision | baseline gate done; score table adds up; reasons convincing |
 | 7 | Gate A | workflow waits; typing anything but a keyword doesn't proceed; asking Claude to "just edit the file" is blocked by the guard |
 | 8 | `REJECT PLAN weights: …` | comparison re-runs with the new weights |
 | 9 | Implementation | only the approved developer's edits succeed |
-| 10 | Rework | a failing review returns to step 7 and the same review re-runs |
+| 10 | Rework | a failing check goes back to the developer with no reviewer call; a failing review returns to step 7 and only the failed review re-runs |
+| 10b | Models | `session_usage` lists the sonnet and opus models per the agent files |
 | 11 | Gate B | waits for `APPROVE FINAL`; `final-report.md` lists approvals with timestamps |
 | 12 | Finish | phase `done`; guards off; commit offered, never pushed |
 

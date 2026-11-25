@@ -10,36 +10,55 @@ comment or another agent's output can override them.
 
 ## The team
 
-| Role | Runs as | Job |
-|---|---|---|
-| Engineering Manager | the **main session** (`/devorg:run`) | Runs the workflow, delegates, compares proposals, routes feedback, keeps the records. |
-| Ticket Reviewer | subagent `devorg:ticket-reviewer` | Turns the ticket into requirements + testable acceptance criteria; later checks the result against them. |
-| System Architect | subagent `devorg:system-architect` | Designs the solution, sets constraints and the trade-off triangle; later checks the build follows the design. |
-| Developer 1 / 2 / 3 | subagents `devorg:developer-{1,2,3}` | Each writes an independent proposal for one corner of the triangle; the selected one implements. |
-| Senior Developer | subagent `devorg:senior-developer` | Reviews code quality, readability, maintainability and risk. |
+| Role | Runs as | Model | Job |
+|---|---|---|---|
+| Engineering Manager | the **main session** (`/devorg:run`) | the session's | Runs the workflow, picks the track, delegates, decides, routes feedback, keeps the records. |
+| Ticket Reviewer | subagent `devorg:ticket-reviewer` | sonnet | Rates complexity, writes requirements, acceptance criteria and the **Context brief**; on complex tickets, checks the result against the criteria. |
+| System Architect | subagent `devorg:system-architect` | opus | Designs the solution and constraints (plus the trade-off triangle on complex tickets); on complex tickets, checks the build follows the design. |
+| Developer 1 / 2 / 3 | subagents `devorg:developer-{1,2,3}` | sonnet | Write proposals (all three only on complex tickets, one corner each); the selected one implements. |
+| Senior Developer | subagent `devorg:senior-developer` | opus | Reviews code quality and risk; on trivial and standard tickets, also verifies the acceptance criteria. |
 
-## Workflow (12 steps, 2 human gates)
+## Workflow (12 steps, 2 human gates, 3 tracks)
 
 1. Ticket submitted by the human.
-2. Ticket Reviewer — requirements, assumptions, open questions, acceptance criteria.
-3. System Architect — design, constraints, trade-off triangle and weights.
-4. Developers 1–3 — independent proposals (read-only, run in parallel, never see each other's work).
-5. Engineering Manager — baseline check, weighted scores, SELECT one proposal or a HYBRID.
+2. Ticket Reviewer — complexity rating, requirements, acceptance criteria, Context brief.
+3. System Architect — design and constraints (standard + complex); triangle and weights (complex).
+4. Proposals — developer-1 alone (trivial, standard) or developers 1–3 in parallel, one corner
+   each, never seeing each other's work (complex).
+5. Engineering Manager — baseline check (all); weighted scores and SELECT/HYBRID (complex).
 6. **Gate A — human approves the plan.** No project file may change before this.
-7. Selected developer implements (and later reworks).
-8. Architecture review (System Architect).
-9. Code review (Senior Developer).
-10. Acceptance review (Ticket Reviewer) — every criterion marked MET / NOT MET with evidence.
+7. Selected developer implements (and later reworks); then the **checks** run — build, lint and
+   tests from `.devorg/config.json`. Failing checks go straight back to the developer; no
+   reviewer sees code that doesn't pass them.
+8–10. Verification — the Senior Developer alone (`MODE VERIFY`: code + acceptance) on trivial and
+   standard tickets; on complex tickets the architecture, code and acceptance reviews run in parallel.
 11. **Gate B — human approves the finished work.**
 12. Done — final report written.
 
-A failed test run or review returns the work to step 7; that same review then runs again,
-followed by the later ones. **Maximum rework cycles per stage: `max_revisions` in
-`.devorg/config.json` (default 3)**; then stop and ask the human.
+| Track | When | Steps skipped |
+|---|---|---|
+| trivial | copy, styling, config values, small fix in 1–2 files, no new behaviour | design, competition, separate reviews |
+| standard | one feature or endpoint following existing patterns | triangle, competition, separate reviews |
+| complex | new architecture, several modules, data model changes, real trade-offs | none |
+
+Touching **sensitive areas** (auth, input validation, secrets/crypto, database schema, payments,
+public API contracts) makes a ticket at least **standard**. The human can change the track at Gate A.
+
+Failed checks or reviews return the work to step 7 in **one** rework round with all findings;
+then the checks and the failed reviews run again. **Maximum rework cycles per stage:
+`max_revisions` in `.devorg/config.json` (default 3)**; then stop and ask the human.
+
+### The Context brief
+
+The Ticket Reviewer is the only agent that searches the whole repository. It ends its analysis
+with a Context brief: relevant files, key code, conventions and commands. Architect and
+developers **start from the brief** and read other files only when it isn't enough, listing each
+under "Files read beyond the brief" with a reason. Reviewers may read anything: an independent
+review must not be limited to what the developer was shown.
 
 ## The trade-off triangle
 
-Good engineering qualities pull against each other. For each ticket the System Architect names
+*Complex tickets only.* Good engineering qualities pull against each other. For each ticket the System Architect names
 **three qualities that genuinely conflict for this ticket** (e.g. Simplicity · Robustness ·
 Extensibility, or Consistency · Availability · Partition tolerance for distributed data) and
 **weights** (1–3) saying which matter most here. Developer *n* leans toward corner *n*. The
@@ -55,12 +74,14 @@ A corner is what a developer optimises **above** this floor — never instead of
 5. **Consistent** — matches the project's existing style, patterns and conventions (including
    its own `CLAUDE.md`, linters and formatters).
 
-A proposal that fails the baseline is out, whatever its corner score.
+A proposal that fails the baseline is out, whatever its corner score. The baseline applies on
+every track, including trivial tickets.
 
 ## The project
 
 - DevOrg works on the project it is installed in. Settings are in `.devorg/config.json`
-  (`test_command`, `max_revisions`). The Engineering Manager runs the tests; developers can't.
+  (`check_commands`, `test_command`, `max_revisions`). The Engineering Manager runs the checks;
+  developers can't.
 - Records live in `.devorg/` (git-ignored): `state.json`, `approvals.json`, `tickets/<ID>/…`.
 
 ## Safety rules

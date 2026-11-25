@@ -8,10 +8,16 @@ reviewer — and keeps a human in charge with two approval gates that are **enfo
 not just requested in prompts.
 
 ```
-ticket → analysis → design + trade-off triangle → 3 parallel proposals → weighted decision
-       → GATE A (you approve the plan) → implement → tests → 3 reviews (with rework loop)
+ticket → analysis + complexity rating + context brief
+  trivial:  1 developer (simplicity)                        ┐
+  standard: design → 1 developer                            ├→ GATE A (you approve the plan)
+  complex:  design + trade-off triangle → 3 parallel        │
+            proposals → weighted decision                   ┘
+       → implement → build/lint/tests → verification (1 verifier, or 3 parallel reviews on complex)
        → GATE B (you approve the result) → done
 ```
+
+Small tickets get a small team: only complex tickets pay for the full competition.
 
 ## Install
 
@@ -38,6 +44,7 @@ On Windows, Claude Code runs hooks through Git Bash.
 |---|---|
 | `/devorg:init` | Sets the project up (`.devorg/config.json`, `.devorg/rules.md`, `.gitignore`) |
 | `/devorg:run <ticket>` | Starts the workflow; the session becomes the Engineering Manager |
+| `/devorg:run <ticket> --track complex` | Same, but you choose the track instead of the Ticket Reviewer |
 | `APPROVE PLAN [notes]` / `REJECT PLAN <reason>` | Gate A — must be typed, uppercase, at the start of the message |
 | `APPROVE FINAL` / `REJECT FINAL <reason>` | Gate B |
 | `STOP` / `RESUME` / `CANCEL` | Freeze all edits / continue / close the ticket |
@@ -63,7 +70,7 @@ plugins/devorg/                   the plugin itself
   scripts/                          what the guards do (devorg_hooks.py + run-hook.sh launcher)
   .mcp.json                         registers the token-tracker MCP server
   mcp/token_tracker.py              the MCP server (token usage per session and agent)
-tests/test_hooks.py               28 tests for the guards
+tests/test_hooks.py               29 tests for the guards
 tests/test_mcp.py                 9 tests for the MCP server
 docs/                             how it works, safety, configuration, testing
 docs/history/                     the original proposal

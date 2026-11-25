@@ -13,9 +13,11 @@ Report the status of DevOrg in this project. **Read only — change nothing.**
 
 ```
 Ticket:     <ID> — <title from 00-ticket.md>
+Track:      <trivial|standard|complex>  (older tickets without a track: complex)
 Phase:      <phase>  (step <n> of 12)
 Decision:   <SELECT|HYBRID> · implementer: <developer> · grafts: <n>
-Rework:     tests <n>/<max> · architecture <n>/<max> · code <n>/<max> · acceptance <n>/<max>
+Rework:     checks <n>/<max> · then, per review stage used by the track:
+            verify <n>/<max>  |  architecture <n>/<max> · code <n>/<max> · acceptance <n>/<max>
 Approvals:  plan <approved|rejected|pending> (<time>) · final <…>
 Stopped:    yes (<time>) | no
 Last event: <last log line>

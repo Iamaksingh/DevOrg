@@ -1,6 +1,6 @@
 ---
 name: init
-description: Set up DevOrg in the current project — detects the test command, writes .devorg/config.json and .devorg/rules.md, and git-ignores .devorg/. Run once per project before /devorg:run.
+description: Set up DevOrg in the current project — detects the test and check (build/lint) commands, writes .devorg/config.json and .devorg/rules.md, and git-ignores .devorg/. Run once per project before /devorg:run.
 argument-hint: "[--force]"
 disable-model-invocation: true
 ---
@@ -33,9 +33,24 @@ Look at the project root (and the obvious subfolders) for these markers and sugg
 | `Gemfile` with rspec | `bundle exec rspec` |
 | `Makefile` with a `test:` target | `make test` |
 
-Ask the human to confirm or type their own command (the AskUserQuestion tool is fine here).
-If the project has no tests yet, record the command anyway and warn that acceptance reviews will
-fail until tests exist.
+Only suggest a command that exists: for npm, check that the `test` script is really in
+`package.json` (in a sub-folder project use `npm --prefix <folder> test`).
+
+**If the project has no tests yet**, don't record a command that always fails (it would send
+every ticket round the rework loop). Suggest a cheap stand-in that does pass — a syntax or type
+check such as `node --check <entry file>`, `python -m compileall -q .` or `tsc --noEmit` — and
+recommend that the first DevOrg ticket adds a real test setup.
+
+## 2b. Find the check commands
+
+Look for cheap checks that should pass **before** any AI reviewer reads the code: build, lint,
+type check. For example, `package.json` scripts named `build`, `lint`, `typecheck`
+(`npm run build`, `npm --prefix frontend run lint`), `ruff check .` / `flake8` if configured,
+`go vet ./...`, `cargo clippy`. List only commands that exist in the project. Suggest them as
+`check_commands` (an ordered list, fastest first; may be empty).
+
+Ask the human to confirm or edit both the test command and the check commands (the
+AskUserQuestion tool is fine here).
 
 ## 3. Write the files
 
@@ -43,6 +58,7 @@ fail until tests exist.
    ```json
    {
      "version": 1,
+     "check_commands": ["<confirmed build/lint commands, may be empty>"],
      "test_command": "<confirmed command>",
      "max_revisions": 3
    }
@@ -57,7 +73,7 @@ fail until tests exist.
 
 Tell the human these optional extras for `.claude/settings.local.json`. Do not write them
 yourself; settings are the human's call:
-- `"allow": ["Bash(<test_command>:*)"]` — so test runs don't prompt every time.
+- `"allow": ["Bash(<test_command>:*)", …one per check command]` — so checks don't prompt every time.
 - `"deny": ["Read(**/.env)", "Read(**/.env.*)"]` — a second secrets layer that also covers Grep.
 
 ## 5. Finish
