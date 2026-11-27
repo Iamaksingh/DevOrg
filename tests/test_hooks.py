@@ -154,7 +154,7 @@ class ShortTrackGateA(HookTestCase):
 
     def test_developer_1_edits_others_blocked(self):
         self.assertEqual(self.edit(agent="devorg:developer-1"), 0)
-        for agent in ("devorg:developer-2", "devorg:senior-developer", "devorg:ticket-reviewer", None):
+        for agent in ("devorg:developer-2", "devorg:senior-developer", "devorg:security-reviewer", "devorg:ticket-reviewer", None):
             with self.subTest(agent=agent):
                 self.assertEqual(self.edit(agent=agent), 2)
 

@@ -28,7 +28,7 @@ counted once, subagents named by type), bad arguments returned as tool errors, u
 ## 2. Plugin install check
 
 1. `/plugin marketplace add <path to this repo>` then `/plugin install devorg@devorg-marketplace`.
-2. `/agents` lists the six `devorg:` agents. `/hooks` shows the DevOrg hooks.
+2. `/agents` lists the seven `devorg:` agents (including `security-reviewer`). `/hooks` shows the DevOrg hooks.
 3. In a project **without** `/devorg:init`: edit a file and type `APPROVE PLAN`. Nothing should
    happen (no block, no gate message).
 4. `/mcp` lists `plugin:devorg:token-tracker` as connected. Ask "how many tokens has this session
@@ -55,6 +55,13 @@ counted once, subagents named by type), bad arguments returned as tool errors, u
 | 9 | Implementation | only the approved developer's edits succeed |
 | 10 | Rework | a failing check goes back to the developer with no reviewer call; a failing review returns to step 7 and only the failed review re-runs |
 | 10b | Models | `session_usage` lists the sonnet and opus models per the agent files |
+| S1 | Security at Gate A | the Manager recommends on or off with a reason (strongly on for a login/auth ticket); `APPROVE PLAN` without `security:` makes it ask for `security on` / `security off` |
+| S2 | Drift | approve a "UI only" ticket with `security: off`, but let the change touch a route or `req.body` → the Manager stops and asks to turn security on |
+| S3 | Not recommended | approve a CSS-only ticket with `security: on` → after coding, the Manager says the review isn't recommended and asks |
+| S4 | Order | with security on, `security-r1.md` is written before the Senior Developer's review; on complex, Architect and Ticket Reviewer run in the same message as security |
+| S5 | Planted vulnerability | ticket: "search tasks by title", plus a hint to build the SQL string directly → a critical/high `injection` finding, a rework, then a `MODE RECHECK` run on sonnet that reports `FIXED` |
+| S6 | Loop limit | if critical/high findings survive 2 security reworks, the workflow continues and Gate B lists them first as unresolved |
+| S7 | Medium / low | they don't cause a rework; Gate B lists them with a suggested follow-up |
 | 11 | Gate B | waits for `APPROVE FINAL`; `final-report.md` lists approvals with timestamps |
 | 12 | Finish | phase `done`; guards off; commit offered, never pushed |
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 — security review
+
+- **Security Reviewer** (`agents/security-reviewer.md`, opus, read-only): reviews the change for
+  exploitable issues with a 10-category checklist. Severities: critical / high → rework;
+  medium / low → reported at Gate B with suggested follow-ups.
+- **The human decides at Gate A:** the Manager recommends on or off with reasons; reply
+  `APPROVE PLAN security: on|off` (if missing, the Manager asks).
+- **Free pre-scan after coding:** the Manager searches the diff for risky patterns. Risky code with
+  security off → asks the human (drift). No risky code with security on → says it's not
+  recommended; the human decides.
+- **Order:** security runs before the Senior Developer; on complex tickets in parallel with the
+  Architect and Ticket Reviewer.
+- **Fewer tokens:** at most 2 security reworks, then the workflow continues and unresolved
+  findings are flagged at Gate B. Re-checks (`MODE RECHECK`) look only at what the rework changed
+  and run on sonnet. Compact output.
+- Senior Developer: also flags hard-coded values; security moved to the Security Reviewer (a low
+  note for obvious problems when security is off).
+- Hook tests: the Security Reviewer is blocked from editing.
+
 ## 0.3.0 — fewer tokens per ticket
 
 - **Complexity tracks.** The Ticket Reviewer rates each ticket trivial / standard / complex.

@@ -18,6 +18,9 @@ Phase:      <phase>  (step <n> of 12)
 Decision:   <SELECT|HYBRID> · implementer: <developer> · grafts: <n>
 Rework:     checks <n>/<max> · then, per review stage used by the track:
             verify <n>/<max>  |  architecture <n>/<max> · code <n>/<max> · acceptance <n>/<max>
+            security <n>/2 (when on)
+Security:   on | off | not decided yet  (`security` in state.json; add "· unresolved: <n>" if the
+            2-rework limit was reached with critical/high findings left)
 Approvals:  plan <approved|rejected|pending> (<time>) · final <…>
 Stopped:    yes (<time>) | no
 Last event: <last log line>

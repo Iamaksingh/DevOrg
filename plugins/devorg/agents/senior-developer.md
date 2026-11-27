@@ -56,8 +56,10 @@ F1. [severity: high|medium|low] [code | AC-x] `path:line` Issue: <problem> — E
 - **Readability:** clear names, small functions, no dead code, comments only where they help.
 - **Consistency:** matches the existing style and patterns of the codebase.
 - **Tests:** new behaviour is tested, tests are meaningful (not just "runs without error").
-- **Maintainability:** no duplication, no needless abstraction.
-- **Safety:** no secrets, no unsafe input handling, no network calls.
+- **Maintainability:** no duplication, no needless abstraction, no hard-coded values that belong
+  in a constant or config (URLs, limits, magic numbers).
+- **Security is the Security Reviewer's job.** Only if the Manager tells you security review is
+  off for this ticket, flag anything obviously dangerous (e.g. a hard-coded password) as a low note.
 - **Acceptance (MODE VERIFY only):** "MET" needs evidence you actually saw — a test that exercises
   it, or the code plus check output. Code that looks right but has no test is NOT MET; the
   expected fix is "add a test for …".

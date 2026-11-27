@@ -12,10 +12,11 @@ The authoritative, step-by-step version is the Manager's playbook,
 | 3 | Design | System Architect | design, constraints (+ **trade-off triangle + weights** on complex) |
 | 4 | Propose | Developer 1, or Developers 1–3 in parallel (complex) | proposals |
 | 5 | Decide | Manager | baseline gate (+ weighted scores, SELECT or HYBRID on complex) |
-| 6 | **Gate A** | Human | `APPROVE PLAN` / `REJECT PLAN <reason>` |
+| 6 | **Gate A** | Human | `APPROVE PLAN security: on\|off` / `REJECT PLAN <reason>` |
 | 7 | Implement / rework | Selected developer | code + tests |
 | 7b | **Checks** + diff | Manager | build/lint/test output, diff. Failing checks go back to step 7, no reviewer runs |
-| 8–10 | Verification | Senior Developer `MODE VERIFY` (trivial, standard) · Architect + Senior Developer + Ticket Reviewer in parallel (complex) | `VERDICT: PASS/FAIL` + findings, acceptance table |
+| 7c | Security pre-scan | Manager | searches the diff for risky patterns (no agent call); may ask the human to switch security on or off |
+| 8–10 | Verification | Security Reviewer (if on) → Senior Developer `MODE VERIFY` (trivial, standard) · Architect + Ticket Reviewer in parallel with Security Reviewer (if on) → Senior Developer (complex) | `VERDICT: PASS/FAIL` + findings, acceptance table |
 | 11 | **Gate B** | Human | `APPROVE FINAL` / `REJECT FINAL <reason>` |
 | 12 | Done | Manager | `final-report.md`, optional local commit |
 
@@ -30,7 +31,8 @@ ticket, and the rating picks the **track**:
 | Design | — | ✓ | ✓ with triangle |
 | Proposals | Developer 1 (`CORNER: Simplicity`) | Developer 1 (`CORNER: none`) | Developers 1–3, one corner each |
 | Verification | Senior Developer `MODE VERIFY` | Senior Developer `MODE VERIFY` | 3 reviews in parallel |
-| Agent calls (no rework) | 4 | 5 | 9–10 |
+| Security Reviewer | if the human turns it on | same | same |
+| Agent calls (no rework) | 4 (+1 with security) | 5 (+1) | 9–10 (+1) |
 
 Safety rules for the rating:
 - **Sensitive areas** (auth, input validation, secrets/crypto, database schema or migrations,
@@ -39,6 +41,28 @@ Safety rules for the rating:
 - The human decides in the end: `/devorg:run "…" --track complex` at the start, or
   `REJECT PLAN track: complex` at Gate A.
 - Both gates and all hooks apply on every track.
+
+## Security review
+
+An optional **Security Reviewer** checks the change for exploitable issues. The human stays in
+control of when it runs:
+
+1. **Gate A:** the Manager recommends on or off, with the trade-off (strongly on for auth,
+   payments, secrets, database queries or user input). The human replies
+   `APPROVE PLAN security: on` or `security: off`; if they leave it out, the Manager asks.
+2. **Pre-scan after coding (free):** the Manager searches the diff for risky patterns
+   (`req.body`, queries, `innerHTML`, `password`, `token`, `exec(`, new packages, …).
+   - security **off** but risky code found → the Manager asks the human again (the code drifted
+     from the plan);
+   - security **on** but nothing risky found → the Manager says the review isn't recommended
+     and why; the human decides.
+3. **Order:** Security Reviewer first, then the Senior Developer — no point reviewing quality on
+   code a security fix is about to change.
+4. **Severity:** critical / high → back to the developer; medium / low → listed at Gate B with a
+   suggested follow-up (fix now with `REJECT FINAL fix S<n>`, or later).
+5. **At most 2 security reworks.** Re-checks look only at what the rework changed and run on
+   sonnet. If critical/high findings remain after 2 reworks, the workflow continues and Gate B
+   shows them first, clearly marked.
 
 ## Fewer tokens per agent
 
@@ -107,7 +131,7 @@ the Manager then reads the file. A keyword typed in the wrong phase is recorded 
 
 Failed checks, or one or more failed reviews, send the work back to step 7 with **all** findings
 in one rework round. After the fix and green checks, **only the failed reviews run again**. Each
-stage (checks, verify, architecture, code, acceptance) has its own counter; when one reaches
+stage (checks, verify, architecture, code, acceptance) has its own counter (security has its own limit of 2, see above); when one reaches
 `max_revisions` (default 3) the Manager stops and asks the human.
 
 ## Records
@@ -118,7 +142,7 @@ stage (checks, verify, architecture, code, acceptance) has its own counter; when
   03-proposals/developer-<n>.md
   04-decision.md  04-hybrid-check.md
   05-implementation/round-<n>-summary.md  round-<n>.diff  round-<n>-checks.txt
-  06-reviews/verify-r<n>.md  or  {architecture,code,acceptance}-r<n>.md
+  06-reviews/verify-r<n>.md  or  {architecture,code,acceptance}-r<n>.md,  security-r<n>.md (if on)
   log.md  final-report.md
 ```
 

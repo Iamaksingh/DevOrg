@@ -9,6 +9,7 @@
 | System Architect | subagent | opus | Read, Grep, Glob | `agents/system-architect.md` |
 | Developer 1 / 2 / 3 | subagents | sonnet | Read, Grep, Glob, Edit, Write | `agents/developer-{1,2,3}.md` |
 | Senior Developer | subagent | opus | Read, Grep, Glob | `agents/senior-developer.md` |
+| Security Reviewer | subagent (optional) | opus; re-checks on sonnet | Read, Grep, Glob | `agents/security-reviewer.md` |
 
 Models follow cognitive load: design and code review (where a miss is expensive) get opus;
 analysis, proposals and implementation against a design get sonnet.
@@ -17,7 +18,7 @@ analysis, proposals and implementation against a design get sonnet.
 
 A subagent runs to completion and returns one result; it cannot stop halfway and wait for a
 human. The Manager has to pause at two approval gates, so it runs as the **main session**:
-`/devorg:run` loads its playbook into the conversation. The six specialists are true subagents,
+`/devorg:run` loads its playbook into the conversation. The seven specialists are true subagents,
 spawned by the Manager with the Agent tool as `devorg:<name>`.
 
 ### Why three developer files that look the same
@@ -60,17 +61,22 @@ flowchart TD
     GA -->|approved| I[Selected developer · IMPLEMENT / REWORK]
     I --> T[Manager runs build, lint, tests + diff]
     T -->|fail| I
-    T -->|trivial / standard| V[Senior Developer · VERIFY]
-    T -->|complex| R[Architect REVIEW ‖ Senior Developer REVIEW ‖ Ticket Reviewer ACCEPT]
-    V -->|fail| I
+    T -->|pass| PS[Manager · security pre-scan, may ask the human]
+    PS -->|security on| S[Security Reviewer · SECURITY, re-checks on sonnet]
+    S -->|critical / high, max 2 reworks| I
+    S -->|pass, or limit reached| SD[Senior Developer · VERIFY or REVIEW]
+    PS -->|security off| SD
+    PS -->|complex, in parallel| R[Architect REVIEW ‖ Ticket Reviewer ACCEPT]
+    SD -->|fail| I
     R -->|any fail, one rework| I
-    V & R --> GB{{Gate B · human types APPROVE FINAL}}
+    SD & R --> GB{{Gate B · human types APPROVE FINAL}}
     GB -->|rejected| I
     GB -->|approved| DONE[Done · final report, optional local commit]
 ```
 
-Parallel stages (several Agent calls in one message): the three proposals and the three reviews,
-both on complex tickets only. Everything else is sequential. Cheap shell checks (build, lint,
+Parallel stages (several Agent calls in one message): the three proposals and the reviews, both
+on complex tickets only — the Architect and Ticket Reviewer run alongside the Security Reviewer,
+and the Senior Developer follows once security passes. Everything else is sequential. Cheap shell checks (build, lint,
 tests) always run before any reviewer, so a broken build never costs reviewer tokens.
 
 ## Enforcement layer

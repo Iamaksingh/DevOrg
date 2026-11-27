@@ -31,7 +31,7 @@ The Ticket Reviewer rates each ticket `trivial`, `standard` or `complex`. The ra
 | 5 Decision | baseline check only | baseline check only | baseline, weighted scores, SELECT/HYBRID |
 | 6 Gate A | ✓ | ✓ | ✓ |
 | 7 Implement + checks | ✓ | ✓ | ✓ |
-| 8–10 Verification | senior-developer `MODE VERIFY` | senior-developer `MODE VERIFY` | architect, senior-developer and ticket-reviewer **in parallel** |
+| 8–10 Verification | security-reviewer (if on) → senior-developer `MODE VERIFY` | security-reviewer (if on) → senior-developer `MODE VERIFY` | architect and ticket-reviewer **in parallel** with security-reviewer (if on) → senior-developer |
 | 11 Gate B | ✓ | ✓ | ✓ |
 
 **Choosing the track** (record it as `track` in `state.json` and in `log.md` with the reason):
@@ -57,6 +57,7 @@ namespaced: use `devorg:<name>`. If that name isn't found, try the bare `<name>`
 | 7 | the selected developer | `MODE IMPLEMENT` or `MODE REWORK` |
 | 8–10 complex | `devorg:system-architect` · `devorg:senior-developer` · `devorg:ticket-reviewer` | `MODE REVIEW` · `MODE REVIEW` · `MODE ACCEPT` |
 | 8–10 trivial/standard | `devorg:senior-developer` | `MODE VERIFY` |
+| 8 (if security is on) | `devorg:security-reviewer` | `MODE SECURITY` (pass 1) · `MODE RECHECK` (later passes, called with `model: sonnet`) |
 
 Subagents start with no memory of this conversation. Every prompt you send must contain
 **everything** they need: the ticket id, the paths of the record files to read (analysis,
@@ -79,7 +80,7 @@ brief at the end of `01-analysis.md`** rather than searching the repository.
     04-decision.md                   baseline gate (+ scores and SELECT/HYBRID on complex)
     04-hybrid-check.md               Architect's coherence check (hybrids only)
     05-implementation/round-<n>-summary.md, round-<n>.diff, round-<n>-checks.txt
-    06-reviews/<stage>-r<n>.md       stage = verify (trivial/standard) | architecture | code | acceptance (complex)
+    06-reviews/<stage>-r<n>.md       stage = verify (trivial/standard) | architecture | code | acceptance (complex) | security
     log.md                           timeline: one line per event/decision
     final-report.md
 ```
@@ -98,7 +99,8 @@ brief at the end of `01-analysis.md`** rather than searching the repository.
   "grafts": [],
   "weights_override": null,
   "round": 0,
-  "revisions": {"checks": 0, "verify": 0, "architecture": 0, "code": 0, "acceptance": 0},
+  "security": null,
+  "revisions": {"checks": 0, "verify": 0, "architecture": 0, "code": 0, "acceptance": 0, "security": 0},
   "failed_reviews": [],
   "updated_at": "<ISO timestamp>"
 }
@@ -225,9 +227,15 @@ summary, sized to the track:
   and your decision (SELECT/HYBRID with grafts) and why. Mention they can change the weights
   (e.g. `REJECT PLAN weights: robustness 3, simplicity 1`).
 
+- **Security review — your recommendation.** Look at the requirements, the "Sensitive areas
+  touched" line in `01-analysis.md` and the planned files. Recommend `on` or `off` with the
+  trade-off in one or two lines (what could go wrong vs. one extra opus call). If the ticket
+  touches auth, payments, secrets, database queries or user input, **strongly recommend on**.
+  The human decides; never force it.
+
 Mention they can change the track (`REJECT PLAN track: complex`). Then tell them to reply with
 exactly one of:
-- `APPROVE PLAN` (optionally followed by notes)
+- `APPROVE PLAN security: on|off` (optionally followed by notes)
 - `REJECT PLAN <reason>`
 - `STOP`
 
@@ -236,7 +244,10 @@ count when the human types them, because a hook records them in `approvals.json`
 When the next message arrives, read `.devorg/approvals.json` and trust only what it records for
 this ticket:
 - `plan.status == "approved"` → record notes in `log.md` (answers to open questions become part
-  of the requirements), go to step 7.
+  of the requirements). Set `security` in `state.json` to `on` or `off` from `security:` in the
+  approval comment. If the comment has no `security:`, don't guess: remind the human of your
+  recommendation and ask them to reply in this format: `security on` or `security off`. End your
+  turn and wait; record their answer, then go to step 7.
 - `plan.status == "rejected"` → log the reason, then:
   - `track: <level>` in the reason → set the new track and redo from step 3 (or step 4 for trivial).
   - new weights (complex) → store them as `weights_override` and redo step 5.
@@ -257,24 +268,66 @@ check fails, **do not call any reviewer**: that counts as a `checks` revision �
 rule with the failing output as the finding. Reviewers only ever see work that builds and passes
 its tests.
 
+**Step 7c — Security pre-scan (free, no agent call).** Search the latest diff for risky patterns:
+request input (`req.body`, `req.query`, `req.params`, form handling), queries (`query(`, `SELECT`,
+`INSERT`), HTML output (`innerHTML`, `dangerouslySetInnerHTML`), `password`, `token`, `secret`,
+`jwt`, `crypto`, `exec(`, `spawn(`, `eval(`, file paths (`fs.`, `path.join`), CORS/cookie settings,
+and new packages in `package.json` or other dependency files. The scan only decides whether to ask;
+it never says the code is safe.
+- `security` is `off` and the scan finds hits → **drift**: tell the human what was found (file and
+  pattern), recommend turning security on, end your turn and wait. They reply `security on` or
+  `security off`; update `state.json` and log it.
+- `security` is `on` and the scan finds **no** hits → tell the human the security review is not
+  recommended, and why (how small the change is, what it touches, e.g. "only CSS in 2 files"),
+  and that skipping it saves one opus call. Ask them to reply `security off` to skip it or
+  `security on` to keep it. End your turn and wait; update `state.json` and log their answer.
+- Otherwise continue with the human's choice.
+
 **Steps 8–10 — Verification.** phase=`verification`. Give each reviewer the analysis, design (if
-any), approved proposal, latest diff and latest check output.
-- **Trivial and standard:** call `devorg:senior-developer` with `MODE VERIFY` →
+any), approved proposal, latest diff and latest check output. Tell the Senior Developer whether
+security review is on or off for this ticket.
+
+**Security first (if `security` is `on`).** Call `devorg:security-reviewer` with `MODE SECURITY`
+→ `06-reviews/security-r<n>.md`. The Senior Developer runs only after security passes — no point
+reviewing code quality that a security fix is about to change.
+- **Trivial and standard:** security (if on), then `devorg:senior-developer` with `MODE VERIFY` →
   `06-reviews/verify-r<n>.md`.
-- **Complex:** call these **in parallel — three Agent calls in a single message**:
+- **Complex:** in **one message**, call in parallel:
   - `devorg:system-architect` MODE REVIEW → `06-reviews/architecture-r<n>.md`
-  - `devorg:senior-developer` MODE REVIEW → `06-reviews/code-r<n>.md`
   - `devorg:ticket-reviewer` MODE ACCEPT → `06-reviews/acceptance-r<n>.md`
+  - `devorg:security-reviewer` MODE SECURITY (if on).
+
+  When security passes (or is off), call `devorg:senior-developer` MODE REVIEW →
+  `06-reviews/code-r<n>.md`. If security fails, don't call the Senior Developer yet: send the
+  security findings and any architecture/acceptance findings to the developer in one rework.
 
   After a rework, call **only the reviews in `failed_reviews`** (in parallel if more than one).
   Reviews that passed are not repeated.
+
+**Security findings by severity.** Only **critical** and **high** findings fail the security
+review and go to the developer. **Medium** and **low** never cause a rework: collect them for Gate B.
+
+**Security passes 2 and 3 (cheap re-check).** After a security rework, don't run a full review
+again. Make the delta: `diff round-<n-1>.diff round-<n>.diff` → `05-implementation/round-<n>-delta.diff`.
+Call `devorg:security-reviewer` with **`model: sonnet`** and `MODE RECHECK`, passing only the
+previous security review and the delta file.
+
+**Security loop limit: 2 reworks** (`revisions.security`, not `max_revisions`). If the re-check
+after the 2nd security rework still fails, **don't stop**: log it, mark the remaining critical/high
+findings as **unresolved**, and carry on to the Senior Developer and Gate B.
+
+**Security after other reworks.** If security already passed and a later rework (Senior Developer,
+architecture, acceptance, or Gate B rejection) changes code, run the step 7c pre-scan on the delta.
+If it finds hits and the security loop limit isn't used up, run `MODE RECHECK` (sonnet) on that
+delta; a failure counts towards the same limit of 2.
 
 Read the first line of each review. It must be `VERDICT: PASS` or `VERDICT: FAIL`; if it isn't,
 ask the reviewer once to restate in the required format. Set `failed_reviews` to the stages that
 failed this time (empty if all passed).
 
 **Rework rule.** When the checks or one or more reviews fail:
-1. If any failing stage's `revisions[<stage>]` already equals `max_revisions` → log "revision
+1. (Security has its own limit of 2 — see above.) If any other failing stage's
+   `revisions[<stage>]` already equals `max_revisions` → log "revision
    limit reached", **stop and ask the human** (allow N more cycles, accept as is, or
    `STOP`/`CANCEL`), end your turn and wait. If the human allows more cycles, record that in `log.md`.
 2. Otherwise increment `revisions[<stage>]` for **each** failing stage and go to step 7 with MODE
@@ -285,9 +338,13 @@ failed this time (empty if all passed).
    ask the human.
 
 **Step 11 — Gate B (final human approval).** Only when the checks pass and the latest review for
-every stage of the track is PASS. phase=`awaiting_final_approval`. Show the human: the track,
+every stage of the track is PASS (security may instead be **unresolved** after its 2-rework limit).
+phase=`awaiting_final_approval`. Show the human: the track,
 what changed (files + one line each), check summary, the acceptance table, rework history, any
-low findings left open, and the token usage table from `session_usage`. Tell them to reply with
+low findings left open, and the token usage table from `session_usage`. Then a **Security**
+section: on or off (and any drift decision); **unresolved critical/high findings first and
+clearly marked**; then medium and low findings, each with a suggested follow-up. Remind them they
+can have any of these fixed now with `REJECT FINAL fix S<n>`. Tell them to reply with
 exactly one of `APPROVE FINAL`, `REJECT FINAL <reason>` or `STOP`. End your turn and wait. On the
 next message, read `approvals.json`:
 - `final.status == "approved"` → step 12.
@@ -295,7 +352,7 @@ next message, read `approvals.json`:
   reason as the finding), then the checks and **every review of the track** again, then Gate B again.
 
 **Step 12 — Done.** Write `final-report.md` (summary, track, decision trail, rework history, check
-evidence, approvals with timestamps from `approvals.json`, and a **Token usage** section with the
+evidence, the Security section from Gate B, approvals with timestamps from `approvals.json`, and a **Token usage** section with the
 `session_usage` table). If the ticket ran across several sessions (`resume`), say the table
 covers the current session only. Set phase=`done` (this switches the DevOrg guards off). Then
 offer a local commit of the changed project files, `git add <files from the diff>` +
